@@ -2,58 +2,45 @@
   --bg:#CDD2D3;
   --card:#F2F6F7;
   --text:#707070;
-  --field:#FAFEFF;
+  --line:#92989A;
   --accent:#707070;
+  --field:#FAFEFF;
 }
-
 *{ box-sizing:border-box; }
-
 html,body,#root{ height:100%; width:100%; }
 body{
   margin:0;
   background:var(--bg);
   color:var(--text);
   -webkit-font-smoothing:antialiased;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Inter, Arial, sans-serif;
 }
 
 /* Inputs base */
-input,select,textarea{
+input,select,textarea,button{
   width:100%;
-  background:var(--field);
-  color:var(--text);
+  font-size:16px;
+  padding:10px 12px;
+  border-radius:12px;
   border:none;
   outline:none;
-  border-radius:12px;
-  height:44px;
-  padding:10px 12px;
-  font-size:18px;
+  background:var(--field);
+  color:var(--text);
   box-shadow:none;
 }
 textarea{ min-height:90px; height:auto; }
 
 /* Botones */
 button{
-  border:none;
-  outline:none;
   background:var(--card);
   color:var(--text);
-  border-radius:12px;
   height:42px;
 }
-.btn-primary{
-  background:var(--accent);
-  color:#fff;
-}
+.btn-primary{ background:var(--accent); color:#fff; }
 
-/* Segment buttons (Ingreso / Gasto / Transferencia) */
+/* Segment */
 .seg{ display:flex; gap:12px; }
-.seg button{
-  flex:1;
-  height:44px;
-  border-radius:14px;
-  background:var(--field);
-}
+.seg button{ flex:1; height:44px; border-radius:14px; background:var(--field); }
 .seg .active{ background:var(--accent); color:#fff; }
 
 /* Tarjetas */
@@ -65,7 +52,7 @@ button{
   width:100%;
 }
 
-/* CONTENEDOR — ancho completo del móvil */
+/* Contenedor: ancho completo móvil */
 .container{
   width:100%;
   max-width:100%;
@@ -73,26 +60,11 @@ button{
   padding:16px;
 }
 
-/* +2px de legibilidad en el formulario */
-form label{ font-size:16px; }
-form button{ font-size:18px; }
-
-/* Unificar estilo del input numérico (Monto) */
-input[type="number"]{
-  background:var(--field);
-  color:var(--text);
-  border:none;
-  outline:none;
-  border-radius:12px;
-  height:44px;
-  padding:10px 12px;
+/* Input number unificado */
+input[type='number']{
+  appearance:textfield;
+  -moz-appearance:textfield;
   font-size:18px;
-  appearance:textfield;        /* Chrome/Edge */
-  -moz-appearance:textfield;   /* Firefox */
-  box-shadow:none;
 }
-/* Quitar flechitas */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
-/* Sin brillo al enfocar */
-input[type="number"]:focus{ outline:none; box-shadow:none; }
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
