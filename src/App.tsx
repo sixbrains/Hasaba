@@ -296,8 +296,8 @@ export default function App() {
     step="any"
     placeholder="0"
     value={form.amount}
-    onKeyDown={(e) => ['e','E','+','-'].includes(e.key) && e.preventDefault()} // bloquea notación científica
-    onChange={(e) => onChange('amount', e.target.value)}                         // guardamos tal cual, toCents ya limpia
+    onKeyDown={(e) => ['e','E','+','-'].includes(e.key) && e.preventDefault()}
+    onChange={(e) => onChange('amount', e.target.value)}
   />
 </div>
 
