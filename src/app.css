@@ -1,58 +1,24 @@
-:root{
-  --bg:#CDD2D3;
-  --card:#F2F6F7;
-  --text:#707070;
-  --line:#92989A;
-  --accent:#707070;
-  --field:#FAFEFF;
-}
-*{ box-sizing:border-box; }
-html,body,#root{ height:100%; width:100%; }
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  -webkit-font-smoothing:antialiased;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Inter, Arial, sans-serif;
-}
-input,select,textarea,button{
-  width:100%;
-  font-size:16px;
-  padding:10px 12px;
-  border-radius:12px;
-  border:none;
-  outline:none;
-  background:var(--field);
-  color:var(--text);
-  box-shadow:none;
-}
-textarea{ min-height:90px; height:auto; }
-button{
-  background:var(--card);
-  color:var(--text);
-  height:42px;
-}
-.btn-primary{ background:var(--accent); color:#fff; }
-.seg{ display:flex; gap:12px; }
-.seg button{ flex:1; height:44px; border-radius:14px; background:var(--field); }
-.seg .active{ background:var(--accent); color:#fff; }
-.card{
-  background:var(--card);
-  color:var(--text);
-  border-radius:24px;
-  padding:20px;
-  width:100%;
-}
-.container{
-  width:100%;
-  max-width:100%;
-  margin:0;
-  padding:16px;
-}
-input[type='number']{
-  appearance:textfield;
-  -moz-appearance:textfield;
-  font-size:18px;
-}
-input[type='number']::-webkit-outer-spin-button,
-input[type='number']::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,Helvetica,sans-serif;color:#707070}
+.container{max-width:980px;margin:0 auto;padding:16px}
+.card{background:#F2F6F7;color:#707070;border-radius:24px;padding:20px}
+.label{font-size:15px;opacity:.7;margin-bottom:6px}
+
+/* inputs & selects */
+input,select,button{font-size:18px;color:#707070}
+input,select{width:100%;background:#FAFEFF;border:none;border-radius:12px;height:44px;padding:10px 12px;appearance:textfield;-webkit-appearance:none;box-shadow:none;outline:none}
+/* number unification */
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* segmented */
+.seg{display:flex;gap:10px}
+.seg button{flex:1;height:44px;border-radius:14px;background:#FAFEFF;border:none}
+.seg .active{background:#707070;color:#fff}
+
+/* primary */
+.btn-primary{background:#707070;color:#fff;border:none;border-radius:12px}
+
+/* top tabs buttons share same base via inline styles */
