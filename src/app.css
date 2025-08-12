@@ -73,3 +73,9 @@ button{
   margin:0 auto;
   padding:16px;
 }
+/* === Hasaba: aumentar legibilidad del formulario ( +2px ) === */
+form label { font-size: 16px; }               /* etiquetas */
+form input,
+form select,
+form textarea { font-size: 18px; }            /* campos */
+form button { font-size: 18px; }              /* botones: Ingreso, Gasto, Transferencia, Guardar */
