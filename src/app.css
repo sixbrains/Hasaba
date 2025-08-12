@@ -1,0 +1,75 @@
+/* Global mobile-friendly resets */
+:root{
+  --bg:#CDD2D3;
+  --card:#F2F6F7;
+  --text:#707070;
+  --line:#92989A;
+  --accent:#707070;
+  --field:#FAFEFF;
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+/* Inputs & selects */
+input[type="text"],
+input[type="date"],
+select, textarea{
+  width:100%;
+  height:48px;
+  padding:10px 12px;
+  border:none;
+  outline:none;
+  background:var(--field);
+  color:var(--text);
+  border-radius:12px;
+  appearance:none;
+  -webkit-appearance:none;
+  box-shadow:none;
+}
+/* Buttons */
+button{
+  border:none;
+  outline:none;
+  background:var(--card);
+  color:var(--text);
+  border-radius:12px;
+  height:42px;
+}
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+}
+.seg{
+  display:flex;
+  gap:10px;
+}
+.seg button{
+  flex:1;
+  height:44px;
+  border-radius:14px;
+  background:var(--field);
+}
+.seg .active{
+  background:var(--accent);
+  color:#fff;
+}
+/* Cards */
+.card{
+  background:var(--card);
+  color:var(--text);
+  border-radius:24px;
+  padding:20px;
+}
+.container{
+  max-width:900px;
+  margin:0 auto;
+  padding:16px;
+}

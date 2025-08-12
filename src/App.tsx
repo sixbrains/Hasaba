@@ -204,19 +204,19 @@ export default function App() {
       <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: 8, backdropFilter: 'blur(6px)' }}>
         <div style={{ display: 'flex', gap: 8, padding: 8, borderRadius: 16, background: 'rgba(255,255,255,0.35)' }}>
           {[{ id: 'dashboard', label: 'DASHBOARD' }, { id: 'reportes', label: 'REPORTES' }].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id as any)} className={'flex-1 px-4 py-2 rounded-xl font-semibold tracking-wide'}
-              style={{ flex: 1, color: tab === t.id ? 'white' : PALETTE.text, background: tab === t.id ? PALETTE.accent : PALETTE.card }}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id as any)} className={'seg-btn'}
+              style={{ flex: 1, color: tab === t.id ? 'white' : PALETTE.text, background: tab === t.id ? PALETTE.accent : 'var(--field)', border:'none' }}>{t.label}</button>
           ))}
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 16 }}>
+      <div className='container'>
         {tab === 'dashboard' && (
           <section style={{ display: 'grid', gap: 16 }}>
             <div style={{ display: 'grid', gap: 16 }}>
               {/* Ahorros ancho completo */}
               {(() => { const x = computeBalances(accounts, txs).accounts.find(s => s.account.id==='ahorros'); if(!x) return null; const {account,balanceCents}=x; return (
-                <div key={account.id} style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 20 }}>
+                <div key={account.id} className='card'>
                   <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{account.name}</div>
                   <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(balanceCents)}</div>
                 </div>
@@ -225,7 +225,7 @@ export default function App() {
               {/* Daviplata - Nequi */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['daviplata','nequi'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 20 }}>
+                  <div key={x.account.id} className='card'>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
                   </div>
@@ -235,7 +235,7 @@ export default function App() {
               {/* Visa - Rotativo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['visa','rotativo'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 20 }}>
+                  <div key={x.account.id} className='card'>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
                     {x.account.type === ACCOUNT_TYPES.CREDIT && (
@@ -250,7 +250,7 @@ export default function App() {
               {/* Empresa - Efectivo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['empresa','efectivo'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 20 }}>
+                  <div key={x.account.id} className='card'>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
                   </div>
@@ -259,7 +259,7 @@ export default function App() {
             </div>
 
             {/* Formulario */}
-            <div style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 20 }}>
+            <div className='card'>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Fecha</div>
@@ -308,11 +308,11 @@ export default function App() {
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
                 {['Ingreso','Gasto','Transferencia'].map(lbl => (
-                  <button key={lbl} className={'flex-1 px-4 py-2 rounded-xl font-semibold tracking-wide'} style={{ background: '#FAFEFF', color: PALETTE.text }}>{lbl}</button>
+                  <button key={lbl} className={'seg-btn'} style={{ background: '#FAFEFF', color: PALETTE.text }}>{lbl}</button>
                 ))}
               </div>
 
-              <button style={{ width: '100%', marginTop: 12, padding: '12px 16px', borderRadius: 16, background: PALETTE.accent, color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <button style={{ width: '100%', marginTop: 12, padding: '12px 16px', borderRadius: 16, background: PALETTE.accent, color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border:'none' }}>
                 <Plus style={{ width: 18, height: 18 }} /> Guardar
               </button>
             </div>
