@@ -132,12 +132,6 @@ function parseCSV(text: string) {
   })
 }
 
-const cardStyle: React.CSSProperties = { backgroundColor: PALETTE.card, color: PALETTE.text, border: 'none', borderRadius: 24 }
-const inputCls = 'w-full rounded-xl px-3 py-2 outline-none'
-const inputStyle: React.CSSProperties = { backgroundColor: '#FAFEFF', color: PALETTE.text, border: 'none', boxShadow: 'none' }
-const tabBase = 'flex-1 px-4 py-2 rounded-xl font-semibold tracking-wide'
-const disabledField: React.CSSProperties = { opacity: 0.55 }
-
 export default function App() {
   const [accounts] = useLocalState<Account[]>(LS_KEYS.ACCOUNTS, defaultAccounts)
   const [categories, setCategories] = useLocalState<Category[]>(LS_KEYS.CATEGORIES, defaultCategories)
@@ -147,19 +141,29 @@ export default function App() {
   const [txs, setTxs] = useLocalState<any[]>(LS_KEYS.TXS, [])
   const [tab, setTab] = useState<'dashboard'|'reportes'>('dashboard')
 
-  const summary = useMemo(() => computeBalances(accounts, txs), [accounts, txs])
+  // ---- Form state (controlado) ----
+  const [form, setForm] = useState<any>({
+    type: 'TRANSFERENCIA',
+    date: todayStr(),
+    amount: '',
+    accountFromId: 'visa',
+    accountToId: 'ahorros',
+    paymentMethod: 'VISA',
+    categoryId: null,
+    note: ''
+  })
+  const onChange = (k: string, v: any) => setForm((f:any)=>({ ...f, [k]: v }))
 
-  const [form, setForm] = useState<any>({ type: 'TRANSFERENCIA', date: todayStr(), amount: '', accountFromId: 'visa', accountToId: 'ahorros', paymentMethod: 'VISA', categoryId: null, note: '' })
+  // Autoseleccionar cuenta origen en Gasto según medio de pago
   useEffect(() => {
-    if (form.type === 'GASTO') {
-      const pm = PAYMENT_METHODS.find(m => m.id === form.paymentMethod)
-      if (pm) {
-        const target = accounts.find(a => a.name.includes(pm.accountName))
-        if (target && form.accountFromId !== target.id) setForm((f:any) => ({ ...f, accountFromId: target.id }))
-      }
-    }
+    if (form.type !== 'GASTO') return
+    const pm = PAYMENT_METHODS.find(m => m.id === form.paymentMethod)
+    if (!pm) return
+    const target = accounts.find(a => a.name.includes(pm.accountName))
+    if (target && form.accountFromId !== target.id) setForm((f:any) => ({ ...f, accountFromId: target.id }))
   }, [form.paymentMethod, form.type, accounts])
 
+  // Listado de categorías por tipo y reset cuando cambia tipo
   useEffect(() => {
     const isGastoLocal = form.type === 'GASTO'
     const isIngresoLocal = form.type === 'INGRESO'
@@ -172,19 +176,36 @@ export default function App() {
     }
   }, [form.type, categories])
 
-  const onChange = (k: string, v: any) => setForm((f:any)=>({ ...f, [k]: v }))
+  // Helpers UI
   const isIngreso = form.type === 'INGRESO'
   const isGasto = form.type === 'GASTO'
   const isTransf = form.type === 'TRANSFERENCIA'
 
+  const summary = useMemo(() => computeBalances(accounts, txs), [accounts, txs])
+
+  // Guardar transacción
   const addTx = () => {
-    const amountCents = toCents(form.amount); if (amountCents <= 0) { alert('Monto inválido'); return }
-    const base = { id: crypto.randomUUID?.() || String(Math.random()), amountCents, date: form.date, note: form.note?.trim() || null, createdAt: Date.now(), updatedAt: Date.now(), categoryId: null as string|null, paymentMethod: null as string|null, accountFromId: null as string|null, accountToId: null as string|null }
+    const amountCents = toCents(form.amount)
+    if (amountCents <= 0) { alert('Monto inválido'); return }
+    const base = {
+      id: crypto.randomUUID?.() || String(Math.random()),
+      amountCents,
+      date: form.date,
+      note: form.note?.trim() || null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      categoryId: null as string|null,
+      paymentMethod: null as string|null,
+      accountFromId: null as string|null,
+      accountToId: null as string|null
+    }
     let tx: any
     if (isIngreso)      tx = { ...base, type: 'INGRESO',       accountToId: form.accountToId, categoryId: form.categoryId }
     else if (isGasto)   tx = { ...base, type: 'GASTO',          accountFromId: form.accountFromId, categoryId: form.categoryId, paymentMethod: form.paymentMethod }
     else                tx = { ...base, type: 'TRANSFERENCIA', accountFromId: form.accountFromId, accountToId: form.accountToId }
-    setTxs((prev:any[]) => [tx, ...prev]); setForm((f:any)=>({ ...f, amount: '', note: '' }))
+
+    setTxs((prev:any[]) => [tx, ...prev])
+    setForm((f:any)=>({ ...f, amount: '', note: '' }))
   }
 
   const gastosPorCategoria = useMemo(() => {
@@ -204,8 +225,10 @@ export default function App() {
       <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: 8, backdropFilter: 'blur(6px)' }}>
         <div style={{ display: 'flex', gap: 8, padding: 8, borderRadius: 16, background: 'rgba(255,255,255,0.35)' }}>
           {[{ id: 'dashboard', label: 'DASHBOARD' }, { id: 'reportes', label: 'REPORTES' }].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id as any)} className={'seg-btn'}
-              style={{ flex: 1, color: tab === t.id ? 'white' : PALETTE.text, background: tab === t.id ? PALETTE.accent : 'var(--field)', border:'none' }}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id as any)}
+              style={{ flex: 1, height: 44, borderRadius: 14, color: tab === t.id ? 'white' : PALETTE.text, background: tab === t.id ? PALETTE.accent : '#FAFEFF', border:'none', fontWeight:600 }}>
+              {t.label}
+            </button>
           ))}
         </div>
       </div>
@@ -215,8 +238,8 @@ export default function App() {
           <section style={{ display: 'grid', gap: 16 }}>
             <div style={{ display: 'grid', gap: 16 }}>
               {/* Ahorros ancho completo */}
-              {(() => { const x = computeBalances(accounts, txs).accounts.find(s => s.account.id==='ahorros'); if(!x) return null; const {account,balanceCents}=x; return (
-                <div key={account.id} className='card'>
+              {(() => { const x = summary.accounts.find(s => s.account.id==='ahorros'); if(!x) return null; const {account,balanceCents}=x; return (
+                <div className='card' key={account.id}>
                   <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{account.name}</div>
                   <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(balanceCents)}</div>
                 </div>
@@ -224,8 +247,8 @@ export default function App() {
 
               {/* Daviplata - Nequi */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {['daviplata','nequi'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} className='card'>
+                {['daviplata','nequi'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
+                  <div className='card' key={x.account.id}>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
                   </div>
@@ -234,11 +257,11 @@ export default function App() {
 
               {/* Visa - Rotativo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {['visa','rotativo'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} className='card'>
+                {['visa','rotativo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
+                  <div className='card' key={x.account.id}>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
-                    {x.account.type === ACCOUNT_TYPES.CREDIT && (
+                    {x.account.type === 'CREDIT' && (
                       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
                         Disponible {fmtCOP(x.creditAvailableCents)} · Cupo {fmtCOP(x.account.creditLimitCents || 0)}
                       </div>
@@ -249,8 +272,8 @@ export default function App() {
 
               {/* Empresa - Efectivo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {['empresa','efectivo'].map(id => { const x = computeBalances(accounts, txs).accounts.find(s=>s.account.id===id)!; return (
-                  <div key={x.account.id} className='card'>
+                {['empresa','efectivo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
+                  <div className='card' key={x.account.id}>
                     <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
                   </div>
@@ -263,17 +286,17 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Fecha</div>
-                  <input type='date' value={todayStr()} readOnly className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }} />
+                  <input type='date' value={form.date} onChange={(e)=>onChange('date', e.target.value)} />
                 </div>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Monto (COP)</div>
-                  <input type='text' placeholder='63.800' className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }} />
+                  <input type='text' placeholder='63.800' value={form.amount} onChange={(e)=>onChange('amount', e.target.value)} />
                 </div>
               </div>
 
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 13, opacity: 0.7 }}>Medio de pago</div>
-                <select className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }}>
+                <select value={form.paymentMethod} onChange={(e)=>onChange('paymentMethod', e.target.value)} disabled={isIngreso || isTransf}>
                   {PAYMENT_METHODS.map(m => (<option key={m.id} value={m.id}>{m.label}</option>))}
                 </select>
               </div>
@@ -281,14 +304,14 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta origen</div>
-                  <select className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }}>
-                    {defaultAccounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
+                  <select value={form.accountFromId} onChange={(e)=>onChange('accountFromId', e.target.value)} disabled={isIngreso || isGasto}>
+                    {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta destino</div>
-                  <select className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }}>
-                    {defaultAccounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
+                  <select value={form.accountToId} onChange={(e)=>onChange('accountToId', e.target.value)} disabled={isGasto}>
+                    {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
                   </select>
                 </div>
               </div>
@@ -296,23 +319,25 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Categoría</div>
-                  <select className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }}>
-                    {defaultCategories.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  <select value={form.categoryId || ''} onChange={(e)=>onChange('categoryId', e.target.value)} disabled={isTransf}>
+                    {categories.filter(c => (form.type==='GASTO' && c.kind==='GASTO') || (form.type==='INGRESO' && c.kind==='INGRESO'))
+                               .map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Nota</div>
-                  <input type='text' placeholder='Descripción' className={'w-full rounded-xl px-3 py-2 outline-none'} style={{ background: '#FAFEFF', color: PALETTE.text, border: 'none' }} />
+                  <input type='text' placeholder='Descripción' value={form.note} onChange={(e)=>onChange('note', e.target.value)} />
                 </div>
               </div>
 
-              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                {['Ingreso','Gasto','Transferencia'].map(lbl => (
-                  <button key={lbl} className={'seg-btn'} style={{ background: '#FAFEFF', color: PALETTE.text }}>{lbl}</button>
+              <div className='seg' style={{ marginTop: 12 }}>
+                {['INGRESO','GASTO','TRANSFERENCIA'].map(t => (
+                  <button key={t} className={form.type===t ? 'active' : ''} onClick={()=>onChange('type', t)}>{t[0]+t.slice(1).toLowerCase()}</button>
                 ))}
               </div>
 
-              <button style={{ width: '100%', marginTop: 12, padding: '12px 16px', borderRadius: 16, background: PALETTE.accent, color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, border:'none' }}>
+              <button className='btn-primary' onClick={addTx}
+                      style={{ width: '100%', marginTop: 12, padding: '12px 16px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <Plus style={{ width: 18, height: 18 }} /> Guardar
               </button>
             </div>
@@ -320,9 +345,81 @@ export default function App() {
         )}
 
         {tab === 'reportes' && (
-          <div style={{ backgroundColor: PALETTE.card, color: PALETTE.text, borderRadius: 24, padding: 16 }}>
-            (Reportes... versión de demo)
-          </div>
+          <section style={{ display: 'grid', gap: 16 }}>
+            <div className='card' style={{ padding: 16 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {/* Buscador rápido */}
+                <input placeholder='Buscar...' onChange={()=>{}} />
+                <button onClick={exportCSV}>Exportar</button>
+                <label style={{ cursor: 'pointer' }}>
+                  <Upload style={{ width: 16, height: 16 }} /> Importar
+                  <input type='file' accept='.csv' style={{ display: 'none' }} onChange={(e)=>e.target.files&&e.target.files[0]&&importCSV(e.target.files[0])} />
+                </label>
+              </div>
+
+              <div style={{ marginTop: 12, overflowX: 'auto' }}>
+                <table style={{ width: '100%', fontSize: 14 }}>
+                  <thead>
+                    <tr style={{ color: PALETTE.text, opacity: 0.8 }}>
+                      <th style={{ textAlign: 'left', padding: '8px 0' }}>Fecha</th>
+                      <th style={{ textAlign: 'left' }}>Tipo</th>
+                      <th style={{ textAlign: 'left' }}>Monto</th>
+                      <th style={{ textAlign: 'left' }}>Cuenta</th>
+                      <th style={{ textAlign: 'left' }}>Categoría</th>
+                      <th style={{ textAlign: 'left' }}>Nota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {txs.map((t:any) => (
+                      <tr key={t.id} style={{ borderTop: `1px solid ${PALETTE.line}` }}>
+                        <td style={{ padding: '8px 0', whiteSpace: 'nowrap' }}>{t.date}</td>
+                        <td>{t.type}</td>
+                        <td>{fmtCOP(t.amountCents)}</td>
+                        <td>
+                          {t.type === 'INGRESO' && (accounts.find((a:any)=>a.id===t.accountToId)?.name || '—')}
+                          {t.type === 'GASTO' && (accounts.find((a:any)=>a.id===t.accountFromId)?.name || '—')}
+                          {t.type === 'TRANSFERENCIA' && `${accounts.find((a:any)=>a.id===t.accountFromId)?.name || '—'} → ${accounts.find((a:any)=>a.id===t.accountToId)?.name || '—'}`}
+                        </td>
+                        <td>{categories.find((c:any)=>c.id===t.categoryId)?.name || '—'}</td>
+                        <td title={t.note || ''} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.note || ''}</td>
+                      </tr>
+                    ))}
+                    {txs.length === 0 && (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', color: PALETTE.text, opacity: 0.6, padding: 16 }}>Sin transacciones</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Gráficas */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className='card'>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por categoría (mes actual)</div>
+                <div style={{ height: 256 }}>
+                  <ResponsiveContainer width='100%' height='100%'>
+                    <PieChart>
+                      <Pie dataKey='value' data={[]} label={(e:any)=>e.name}>
+                        {[].map((_:any,i:number)=>(<Cell key={i} />))}
+                      </Pie>
+                      <Tooltip formatter={(v:any)=>fmtCOP(v)} /><Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className='card'>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por mes</div>
+                <div style={{ height: 256 }}>
+                  <ResponsiveContainer width='100%' height='100%'>
+                    <BarChart data={[]}>
+                      <CartesianGrid strokeDasharray='3 3' /><XAxis dataKey='name' /><YAxis tickFormatter={(v:number)=>COP.format(v/100)} />
+                      <Tooltip formatter={(v:any)=>fmtCOP(v)} /><Legend /><Bar dataKey='value' name='Gastos' />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
       </div>
     </div>
