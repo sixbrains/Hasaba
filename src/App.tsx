@@ -288,11 +288,18 @@ export default function App() {
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Fecha</div>
                   <input type='date' value={form.date} onChange={(e)=>onChange('date', e.target.value)} />
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, opacity: 0.7 }}>Monto (COP)</div>
-                  <input type='text' placeholder='63.800' value={form.amount} onChange={(e)=>onChange('amount', e.target.value)} />
-                </div>
-              </div>
+             <div>
+  <div style={{ fontSize: 13, opacity: 0.7 }}>Monto (COP)</div>
+  <input
+    type="number"
+    inputMode="decimal"
+    step="any"
+    placeholder="0"
+    value={form.amount}
+    onKeyDown={(e) => ['e','E','+','-'].includes(e.key) && e.preventDefault()} // bloquea notación científica
+    onChange={(e) => onChange('amount', e.target.value)}                         // guardamos tal cual, toCents ya limpia
+  />
+</div>
 
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 13, opacity: 0.7 }}>Medio de pago</div>
