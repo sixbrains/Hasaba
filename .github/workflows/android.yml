@@ -12,11 +12,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '20'   # sin cache para no requerir package-lock.json
 
       - name: Install deps
-        run: npm install   # usamos npm install para no exigir package-lock.json
+        run: npm install
 
       - name: Build web (Vite)
         run: npm run build
