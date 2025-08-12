@@ -14,6 +14,12 @@ jobs:
         with:
           node-version: '20'   # sin cache para no requerir package-lock.json
 
+      - name: Setup Java (JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'   # corrige "invalid source release: 21"
+
       - name: Install deps
         run: npm install
 
