@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
-// === Paleta y helpers ===
 const PALETTE = {
   bg: '#CDD2D3',
   card: '#F2F6F7',
@@ -24,14 +23,11 @@ const monthKey = (dateStr: string) => {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
 
-// === Tipos de dominio ===
 const ACCOUNT_TYPES = { CASH: 'CASH', CREDIT: 'CREDIT' } as const
 type AccountType = typeof ACCOUNT_TYPES[keyof typeof ACCOUNT_TYPES]
-
 type Account = { id: string; name: string; type: AccountType; initialBalanceCents?: number; creditLimitCents?: number; initialDebtCents?: number }
 type Category = { id: string; name: string; kind: 'GASTO' | 'INGRESO' }
 
-// === Defaults ===
 const PAYMENT_METHODS = [
   { id: 'VISA',             label: 'Tarjeta de crédito Visa',          accountName: 'Tarjeta Visa' },
   { id: 'DEBITO_AHORROS',   label: 'Tarjeta débito cuenta de ahorros', accountName: 'Cuenta de ahorros' },
@@ -66,7 +62,6 @@ const defaultCategories: Category[] = [
   { id: 'rendimientos', name: 'Rendimientos', kind: 'INGRESO' },
 ]
 
-// === LocalStorage ===
 const LS_KEYS = { ACCOUNTS: 'ga_accounts', CATEGORIES: 'ga_categories', TXS: 'ga_transactions' }
 function useLocalState<T>(key: string, initial: T) {
   const [state, setState] = useState<T>(() => {
@@ -79,7 +74,6 @@ function useLocalState<T>(key: string, initial: T) {
   return [state, setState] as const
 }
 
-// === Balanceo ===
 function computeBalances(accounts: Account[], txs: any[]) {
   const ef: Record<string, number> = {}
   const debt: Record<string, number> = {}
@@ -90,7 +84,7 @@ function computeBalances(accounts: Account[], txs: any[]) {
       const to = accounts.find(a => a.id === t.accountToId)
       if (!to) return
       if (to.type === ACCOUNT_TYPES.CASH) ef[to.id] = (ef[to.id] || 0) + t.amountCents
-      else debt[to.id] = (debt[to.id] || 0) - t.amountCents // abono a crédito
+      else debt[to.id] = (debt[to.id] || 0) - t.amountCents
     } else if (t.type === 'GASTO') {
       const from = accounts.find(a => a.id === t.accountFromId)
       if (!from) return
@@ -125,7 +119,6 @@ function computeBalances(accounts: Account[], txs: any[]) {
   return { accounts: perAccount, efectivoTotal, creditoDisponibleTotal }
 }
 
-// CSV
 function buildCSV(txs: any[]) {
   const header = 'id,type,date,amountCents,accountFromId,accountToId,categoryId,paymentMethod,note'
   const rows = txs.map((t:any) => [
@@ -160,17 +153,14 @@ export default function App() {
   const [txs, setTxs] = useLocalState<any[]>(LS_KEYS.TXS, [])
   const [tab, setTab] = useState<'dashboard'|'reportes'>('dashboard')
 
-  // Saldos
   const summary = useMemo(() => computeBalances(accounts, txs), [accounts, txs])
 
-  // Liquidez total (Daviplata, Nequi, Empresa, Efectivo, Ahorros) — NO incluye Inversión
   const LIQ_ACCOUNTS = ['daviplata','nequi','empresa','efectivo','ahorros']
   const liquidezTotalCents = useMemo(() => {
     const map: Record<string, number> = {}; summary.accounts.forEach(s=>{ map[s.account.id]=s.balanceCents })
     return LIQ_ACCOUNTS.reduce((acc,id)=>acc+(map[id]||0),0)
   }, [summary])
 
-  // Form
   const [form, setForm] = useState<any>({
     type: 'TRANSFERENCIA',
     date: todayStr(),
@@ -183,7 +173,6 @@ export default function App() {
   })
   const onChange = (k:string, v:any) => setForm((f:any)=>({ ...f, [k]: v }))
 
-  // Autoselección de cuenta origen según medio de pago en GASTO
   useEffect(() => {
     if (form.type !== 'GASTO') return
     const pm = PAYMENT_METHODS.find(m=>m.id===form.paymentMethod)
@@ -192,7 +181,6 @@ export default function App() {
     if (target && form.accountFromId !== target.id) setForm((f:any)=>({ ...f, accountFromId: target.id }))
   }, [form.paymentMethod, form.type, accounts])
 
-  // Categorías por tipo (Transferencia deshabilita)
   useEffect(() => {
     if (form.type === 'TRANSFERENCIA') { if (form.categoryId) setForm((f:any)=>({ ...f, categoryId: null })); return }
     const allowed = defaultCategories.filter(c => (form.type==='GASTO' && c.kind==='GASTO') || (form.type==='INGRESO' && c.kind==='INGRESO'))
@@ -221,12 +209,10 @@ export default function App() {
     setForm((f:any)=>({ ...f, amount: '', note: '' }))
   }
 
-  // Reportes: filtro por mes / total
   const allMonths = useMemo(() => { const s = new Set<string>(); txs.forEach(t=>s.add(monthKey(t.date))); return Array.from(s).sort() }, [txs])
   const [monthFilter, setMonthFilter] = useState<string>('TOTAL')
   const txsFiltered = useMemo(() => monthFilter==='TOTAL' ? txs : txs.filter(t=>monthKey(t.date)===monthFilter), [txs, monthFilter])
 
-  // Gastos por cuenta (incluye Inversión en el listado)
   const gastosPorCuenta = useMemo(() => {
     const map: Record<string, number> = {}
     txsFiltered.filter(t=>t.type==='GASTO').forEach(t => { const id = t.accountFromId || ''; map[id] = (map[id] || 0) + t.amountCents })
@@ -234,7 +220,6 @@ export default function App() {
     return order.map(id => ({ id, name: accounts.find(a=>a.id===id)?.name || id, value: map[id] || 0 }))
   }, [txsFiltered, accounts])
 
-  // Gastos por categoría
   const gastosPorCategoria = useMemo(() => {
     const map: Record<string, number> = {}
     txsFiltered.filter(t=>t.type==='GASTO').forEach(t => {
@@ -245,7 +230,6 @@ export default function App() {
     return Object.entries(map).map(([name,value]) => ({ name, value }))
   }, [txsFiltered])
 
-  // CSV
   const exportCSV = () => {
     const csv = buildCSV(txs)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -258,7 +242,6 @@ export default function App() {
 
   return (
     <div style={{ backgroundColor: PALETTE.bg, minHeight: '100vh', color: PALETTE.text }}>
-      {/* Tabs */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: 8, backdropFilter: 'blur(6px)' }}>
         <div style={{ display: 'flex', gap: 8, padding: 8, borderRadius: 16, background: 'rgba(255,255,255,0.35)' }}>
           {[{ id: 'dashboard', label: 'DASHBOARD' }, { id: 'reportes', label: 'REPORTES' }].map(t => (
@@ -275,13 +258,11 @@ export default function App() {
           <section style={{ display: 'grid', gap: 16 }}>
             <div style={{ display: 'grid', gap: 16 }}>
 
-              {/* Liquidez total */}
               <div className='card'>
                 <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>Liquidez total</div>
                 <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(liquidezTotalCents)}</div>
               </div>
 
-              {/* Daviplata - Nequi */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['daviplata','nequi'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -291,7 +272,6 @@ export default function App() {
                 )})}
               </div>
 
-              {/* Tarjeta Visa - Crédito rotativo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['visa','rotativo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -306,7 +286,6 @@ export default function App() {
                 )})}
               </div>
 
-              {/* Cuenta de la empresa - Efectivo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['empresa','efectivo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -316,7 +295,6 @@ export default function App() {
                 )})}
               </div>
 
-              {/* Cuenta de ahorros - Inversión */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['ahorros','inversion'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -328,7 +306,6 @@ export default function App() {
 
             </div>
 
-            {/* Formulario */}
             <div className='card'>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
@@ -401,7 +378,6 @@ export default function App() {
 
         {tab === 'reportes' && (
           <section style={{ display: 'grid', gap: 16 }}>
-            {/* Filtro */}
             <div className='card' style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div><b>Mes:</b></div>
               <select value={monthFilter} onChange={(e)=>setMonthFilter(e.target.value)}>
@@ -416,7 +392,6 @@ export default function App() {
               </label>
             </div>
 
-            {/* Gastos por cuenta */}
             <div className='card'>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por cuenta</div>
               <table style={{ width: '100%', fontSize: 15 }}>
@@ -431,7 +406,6 @@ export default function App() {
               </table>
             </div>
 
-            {/* Gastos por categoría */}
             <div className='card'>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por categoría</div>
               <table style={{ width: '100%', fontSize: 15 }}>
@@ -449,7 +423,6 @@ export default function App() {
               </table>
             </div>
 
-            {/* Tabla de transacciones */}
             <div className='card' style={{ padding: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Transacciones</div>
               <div style={{ overflowX: 'auto' }}>
