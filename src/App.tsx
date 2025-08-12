@@ -30,13 +30,15 @@ const todayStr = () => new Date().toISOString().slice(0, 10)
 const ACCOUNT_TYPES = { CASH: 'CASH', CREDIT: 'CREDIT' } as const
 type AccountType = typeof ACCOUNT_TYPES[keyof typeof ACCOUNT_TYPES]
 
+/* +++ MÉTODOS DE PAGO (agregamos Cuenta de la empresa) +++ */
 const PAYMENT_METHODS = [
-  { id: 'VISA', label: 'Tarjeta de crédito Visa', accountName: 'Tarjeta Visa' },
-  { id: 'DEBITO_AHORROS', label: 'Tarjeta débito cuenta de ahorros', accountName: 'Cuenta de ahorros' },
-  { id: 'NEQUI', label: 'Nequi', accountName: 'Nequi' },
-  { id: 'DAVIPLATA', label: 'Daviplata', accountName: 'Daviplata' },
-  { id: 'CUENTA_AHORROS', label: 'Cuenta de ahorros', accountName: 'Cuenta de ahorros' },
-  { id: 'EFECTIVO', label: 'Efectivo', accountName: 'Efectivo' },
+  { id: 'VISA',             label: 'Tarjeta de crédito Visa',         accountName: 'Tarjeta Visa' },
+  { id: 'DEBITO_AHORROS',   label: 'Tarjeta débito cuenta de ahorros',accountName: 'Cuenta de ahorros' },
+  { id: 'NEQUI',            label: 'Nequi',                           accountName: 'Nequi' },
+  { id: 'DAVIPLATA',        label: 'Daviplata',                       accountName: 'Daviplata' },
+  { id: 'CUENTA_AHORROS',   label: 'Cuenta de ahorros',                accountName: 'Cuenta de ahorros' },
+  { id: 'CUENTA_EMPRESA',   label: 'Cuenta de la empresa',             accountName: 'Cuenta de la empresa' },
+  { id: 'EFECTIVO',         label: 'Efectivo',                         accountName: 'Efectivo' },
 ]
 
 type Account = {
@@ -44,11 +46,11 @@ type Account = {
   initialBalanceCents?: number; creditLimitCents?: number; initialDebtCents?: number
 }
 const defaultAccounts: Account[] = [
-  { id: 'ahorros',  name: 'Cuenta de ahorros', type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'empresa',  name: 'Cuenta de la empresa', type: ACCOUNT_TYPES.CASH, initialBalanceCents: 0 },
-  { id: 'efectivo', name: 'Efectivo',            type: ACCOUNT_TYPES.CASH, initialBalanceCents: 0 },
-  { id: 'nequi',    name: 'Nequi',               type: ACCOUNT_TYPES.CASH, initialBalanceCents: 0 },
-  { id: 'daviplata',name: 'Daviplata',           type: ACCOUNT_TYPES.CASH, initialBalanceCents: 0 },
+  { id: 'ahorros',  name: 'Cuenta de ahorros',   type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'empresa',  name: 'Cuenta de la empresa',type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'efectivo', name: 'Efectivo',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'nequi',    name: 'Nequi',               type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'daviplata',name: 'Daviplata',           type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
   { id: 'visa',     name: 'Tarjeta Visa',        type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 300000000, initialDebtCents: 0 },
   { id: 'rotativo', name: 'Crédito rotativo',    type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 500000000, initialDebtCents: 0 },
 ]
@@ -227,6 +229,7 @@ export default function App() {
     setForm((f:any)=>({ ...f, amount: '', note: '' }))
   }
 
+  /* --- Reportes: gastos por categoría (mes) --- */
   const gastosPorCategoria = useMemo(() => {
     const now = new Date()
     const key = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
@@ -238,6 +241,7 @@ export default function App() {
     return Object.entries(map).map(([name,value]) => ({ name, value }))
   }, [txs, categories])
 
+  /* --- Reportes: gastos por mes (últimos 6) --- */
   const gastosPorMes = useMemo(() => {
     const map: Record<string, number> = {}
     txs.filter(t => t.type==='GASTO').forEach(t => {
@@ -246,6 +250,22 @@ export default function App() {
     const keys = Object.keys(map).sort().slice(-6)
     return keys.map(k => ({ name: k, value: map[k] }))
   }, [txs])
+
+  /* --- Reportes: GASTOS POR CUENTA (mes actual) --- */
+  const orderedAccountIds = ['ahorros','daviplata','nequi','visa','rotativo','empresa','efectivo']
+  const gastosPorCuentaMes = useMemo(() => {
+    const now = new Date()
+    const key = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const sum: Record<string, number> = {}
+    txs
+      .filter(t => t.type === 'GASTO' && monthKey(t.date) === key)
+      .forEach(t => { const id = t.accountFromId || ''; sum[id] = (sum[id] || 0) + t.amountCents })
+    return orderedAccountIds.map(id => ({
+      id,
+      name: accounts.find(a => a.id === id)?.name || id,
+      value: sum[id] || 0
+    }))
+  }, [txs, accounts])
 
   const exportCSV = () => {
     const csv = buildCSV(txs)
@@ -466,6 +486,21 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* NUEVO: GASTOS POR CUENTA (MES ACTUAL) */}
+            <div className='card'>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por cuenta (mes actual)</div>
+              <table style={{ width: '100%', fontSize: 15 }}>
+                <tbody>
+                  {gastosPorCuentaMes.map(row => (
+                    <tr key={row.id} style={{ borderTop: `1px solid ${PALETTE.line}` }}>
+                      <td style={{ padding: '8px 0' }}>{row.name}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', fontWeight: 600 }}>{fmtCOP(row.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             {/* Gráficas */}
