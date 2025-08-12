@@ -1,0 +1,44 @@
+name: Android APK (Capacitor)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'   # sin cache para no requerir package-lock.json
+
+      - name: Install deps
+        run: npm install
+
+      - name: Build web (Vite)
+        run: npm run build
+
+      - name: Add Android platform
+        run: npx cap add android
+        continue-on-error: true
+
+      - name: Generate Android icons & splash
+        run: npx @capacitor/assets generate --android
+
+      - name: Sync web assets to Android
+        run: npx cap sync android
+
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
