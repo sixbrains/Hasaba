@@ -42,13 +42,14 @@ const PAYMENT_METHODS = [
 ]
 
 const defaultAccounts: Account[] = [
-  { id: 'ahorros',  name: 'Cuenta de ahorros',    type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'empresa',  name: 'Cuenta de la empresa', type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'efectivo', name: 'Efectivo',             type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'nequi',    name: 'Nequi',                type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'daviplata',name: 'Daviplata',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'visa',     name: 'Tarjeta Visa',         type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 300000000, initialDebtCents: 0 },
-  { id: 'rotativo', name: 'Crédito rotativo',     type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 500000000, initialDebtCents: 0 },
+  { id: 'daviplata', name: 'Daviplata',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'nequi',     name: 'Nequi',                type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'visa',      name: 'Tarjeta Visa',         type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 300000000, initialDebtCents: 0 },
+  { id: 'rotativo',  name: 'Crédito rotativo',     type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 500000000, initialDebtCents: 0 },
+  { id: 'empresa',   name: 'Cuenta de la empresa', type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'efectivo',  name: 'Efectivo',             type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'ahorros',   name: 'Cuenta de ahorros',    type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'inversion', name: 'Inversión',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
 ]
 
 const defaultCategories: Category[] = [
@@ -162,7 +163,7 @@ export default function App() {
   // Saldos
   const summary = useMemo(() => computeBalances(accounts, txs), [accounts, txs])
 
-  // Liquidez total (Daviplata, Nequi, Empresa, Efectivo, Ahorros)
+  // Liquidez total (Daviplata, Nequi, Empresa, Efectivo, Ahorros) — NO incluye Inversión
   const LIQ_ACCOUNTS = ['daviplata','nequi','empresa','efectivo','ahorros']
   const liquidezTotalCents = useMemo(() => {
     const map: Record<string, number> = {}; summary.accounts.forEach(s=>{ map[s.account.id]=s.balanceCents })
@@ -225,11 +226,11 @@ export default function App() {
   const [monthFilter, setMonthFilter] = useState<string>('TOTAL')
   const txsFiltered = useMemo(() => monthFilter==='TOTAL' ? txs : txs.filter(t=>monthKey(t.date)===monthFilter), [txs, monthFilter])
 
-  // Gastos por cuenta
+  // Gastos por cuenta (incluye Inversión en el listado)
   const gastosPorCuenta = useMemo(() => {
     const map: Record<string, number> = {}
     txsFiltered.filter(t=>t.type==='GASTO').forEach(t => { const id = t.accountFromId || ''; map[id] = (map[id] || 0) + t.amountCents })
-    const order = ['ahorros','daviplata','nequi','visa','rotativo','empresa','efectivo']
+    const order = ['daviplata','nequi','visa','rotativo','empresa','efectivo','ahorros','inversion']
     return order.map(id => ({ id, name: accounts.find(a=>a.id===id)?.name || id, value: map[id] || 0 }))
   }, [txsFiltered, accounts])
 
@@ -280,14 +281,6 @@ export default function App() {
                 <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(liquidezTotalCents)}</div>
               </div>
 
-              {/* Ahorros ancho completo */}
-              {(() => { const x = summary.accounts.find(s=>s.account.id==='ahorros'); if(!x) return null; const {account,balanceCents}=x; return (
-                <div className='card' key={account.id}>
-                  <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{account.name}</div>
-                  <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(balanceCents)}</div>
-                </div>
-              )})()}
-
               {/* Daviplata - Nequi */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['daviplata','nequi'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
@@ -298,7 +291,7 @@ export default function App() {
                 )})}
               </div>
 
-              {/* Visa - Rotativo */}
+              {/* Tarjeta Visa - Crédito rotativo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['visa','rotativo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -313,7 +306,7 @@ export default function App() {
                 )})}
               </div>
 
-              {/* Empresa - Efectivo */}
+              {/* Cuenta de la empresa - Efectivo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {['empresa','efectivo'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
                   <div className='card' key={x.account.id}>
@@ -322,6 +315,17 @@ export default function App() {
                   </div>
                 )})}
               </div>
+
+              {/* Cuenta de ahorros - Inversión */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {['ahorros','inversion'].map(id => { const x = summary.accounts.find(s=>s.account.id===id)!; return (
+                  <div className='card' key={x.account.id}>
+                    <div style={{ opacity: 0.7, fontSize: 14, marginBottom: 6 }}>{x.account.name}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtCOP(x.balanceCents)}</div>
+                  </div>
+                )})}
+              </div>
+
             </div>
 
             {/* Formulario */}
