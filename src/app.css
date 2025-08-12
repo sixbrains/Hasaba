@@ -79,3 +79,30 @@ form input,
 form select,
 form textarea { font-size: 18px; }            /* campos */
 form button { font-size: 18px; }              /* botones: Ingreso, Gasto, Transferencia, Guardar */
+/* === Unificar estilo del input numérico (Monto) === */
+input[type="number"] {
+  background: var(--field, #FAFEFF);
+  color: var(--text, #707070);
+  border: none;
+  outline: none;
+  border-radius: 12px;
+  height: 44px;
+  padding: 10px 12px;
+  font-size: 18px;
+  appearance: textfield;        /* Chrome/Edge */
+  -moz-appearance: textfield;   /* Firefox */
+  box-shadow: none;
+}
+
+/* Quitar flechitas */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Sin brillo al enfocar */
+input[type="number"]:focus {
+  outline: none;
+  box-shadow: none;
+}
