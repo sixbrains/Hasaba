@@ -30,29 +30,26 @@ const todayStr = () => new Date().toISOString().slice(0, 10)
 const ACCOUNT_TYPES = { CASH: 'CASH', CREDIT: 'CREDIT' } as const
 type AccountType = typeof ACCOUNT_TYPES[keyof typeof ACCOUNT_TYPES]
 
-/* +++ MÉTODOS DE PAGO (agregamos Cuenta de la empresa) +++ */
+/* Métodos de pago (incluye Cuenta de la empresa) */
 const PAYMENT_METHODS = [
-  { id: 'VISA',             label: 'Tarjeta de crédito Visa',         accountName: 'Tarjeta Visa' },
-  { id: 'DEBITO_AHORROS',   label: 'Tarjeta débito cuenta de ahorros',accountName: 'Cuenta de ahorros' },
-  { id: 'NEQUI',            label: 'Nequi',                           accountName: 'Nequi' },
-  { id: 'DAVIPLATA',        label: 'Daviplata',                       accountName: 'Daviplata' },
+  { id: 'VISA',             label: 'Tarjeta de crédito Visa',          accountName: 'Tarjeta Visa' },
+  { id: 'DEBITO_AHORROS',   label: 'Tarjeta débito cuenta de ahorros', accountName: 'Cuenta de ahorros' },
+  { id: 'NEQUI',            label: 'Nequi',                            accountName: 'Nequi' },
+  { id: 'DAVIPLATA',        label: 'Daviplata',                        accountName: 'Daviplata' },
   { id: 'CUENTA_AHORROS',   label: 'Cuenta de ahorros',                accountName: 'Cuenta de ahorros' },
   { id: 'CUENTA_EMPRESA',   label: 'Cuenta de la empresa',             accountName: 'Cuenta de la empresa' },
   { id: 'EFECTIVO',         label: 'Efectivo',                         accountName: 'Efectivo' },
 ]
 
-type Account = {
-  id: string; name: string; type: AccountType;
-  initialBalanceCents?: number; creditLimitCents?: number; initialDebtCents?: number
-}
+type Account = { id: string; name: string; type: AccountType; initialBalanceCents?: number; creditLimitCents?: number; initialDebtCents?: number }
 const defaultAccounts: Account[] = [
-  { id: 'ahorros',  name: 'Cuenta de ahorros',   type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'empresa',  name: 'Cuenta de la empresa',type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'efectivo', name: 'Efectivo',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'nequi',    name: 'Nequi',               type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'daviplata',name: 'Daviplata',           type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
-  { id: 'visa',     name: 'Tarjeta Visa',        type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 300000000, initialDebtCents: 0 },
-  { id: 'rotativo', name: 'Crédito rotativo',    type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 500000000, initialDebtCents: 0 },
+  { id: 'ahorros',  name: 'Cuenta de ahorros',    type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'empresa',  name: 'Cuenta de la empresa', type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'efectivo', name: 'Efectivo',             type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'nequi',    name: 'Nequi',                type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'daviplata',name: 'Daviplata',            type: ACCOUNT_TYPES.CASH,   initialBalanceCents: 0 },
+  { id: 'visa',     name: 'Tarjeta Visa',         type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 300000000, initialDebtCents: 0 },
+  { id: 'rotativo', name: 'Crédito rotativo',     type: ACCOUNT_TYPES.CREDIT, creditLimitCents: 500000000, initialDebtCents: 0 },
 ]
 
 type Category = { id: string; name: string; kind: 'GASTO' | 'INGRESO' }
@@ -80,6 +77,7 @@ function useLocalState<T>(key: string, initial: T) {
   return [state, setState] as const
 }
 
+/** Balances: efectivo por cuentas y deuda por tarjetas (deuda como negativo); incluye crédito disponible */
 function computeBalances(accounts: Account[], txs: any[]) {
   const ef: Record<string, number> = {}
   const debt: Record<string, number> = {}
@@ -87,18 +85,29 @@ function computeBalances(accounts: Account[], txs: any[]) {
 
   txs.forEach(t => {
     if (t.type === 'INGRESO') {
-      if (t.accountToId && ef[t.accountToId] !== undefined) ef[t.accountToId] += t.amountCents
+      const to = accounts.find(a => a.id === t.accountToId)
+      if (!to) return
+      if (to.type === ACCOUNT_TYPES.CASH) {
+        ef[to.id] = (ef[to.id] || 0) + t.amountCents
+      } else {
+        debt[to.id] = (debt[to.id] || 0) - t.amountCents // abono a crédito
+      }
     } else if (t.type === 'GASTO') {
-      const acc = accounts.find(a => a.id === t.accountFromId)
-      if (acc?.type === ACCOUNT_TYPES.CREDIT) debt[acc.id] = (debt[acc.id] || 0) + t.amountCents
-      else if (acc?.type === ACCOUNT_TYPES.CASH) ef[acc.id] = (ef[acc.id] || 0) - t.amountCents
+      const from = accounts.find(a => a.id === t.accountFromId)
+      if (!from) return
+      if (from.type === ACCOUNT_TYPES.CREDIT) {
+        debt[from.id] = (debt[from.id] || 0) + t.amountCents // compra con tarjeta
+      } else {
+        ef[from.id] = (ef[from.id] || 0) - t.amountCents
+      }
     } else if (t.type === 'TRANSFERENCIA') {
       const from = accounts.find(a => a.id === t.accountFromId)
       const to = accounts.find(a => a.id === t.accountToId)
       if (!from || !to || from.id === to.id) return
       if (to.type === ACCOUNT_TYPES.CREDIT) {
-        debt[to.id] = (debt[to.id] || 0) - t.amountCents
+        debt[to.id] = (debt[to.id] || 0) - t.amountCents // pago tarjeta
         if (from.type === ACCOUNT_TYPES.CASH) ef[from.id] = (ef[from.id] || 0) - t.amountCents
+        else if (from.type === ACCOUNT_TYPES.CREDIT) debt[from.id] = (debt[from.id] || 0) + t.amountCents
       } else if (from.type === ACCOUNT_TYPES.CASH && to.type === ACCOUNT_TYPES.CASH) {
         ef[from.id] = (ef[from.id] || 0) - t.amountCents
         ef[to.id] = (ef[to.id] || 0) + t.amountCents
@@ -163,6 +172,35 @@ export default function App() {
   const [txs, setTxs] = useLocalState<any[]>(LS_KEYS.TXS, [])
   const [tab, setTab] = useState<'dashboard'|'reportes'>('dashboard')
 
+  // === Filtro de periodo para reportes ===
+  const currentMonth = monthKey(todayStr())
+  const monthOptions = useMemo(() => {
+    const s = new Set<string>()
+    txs.forEach((t:any) => s.add(monthKey(t.date)))
+    const arr = Array.from(s).sort()
+    if (!arr.includes(currentMonth)) arr.push(currentMonth)
+    return ['TOTAL', ...arr]
+  }, [txs])
+  const [reportPeriod, setReportPeriod] = useState<string>(currentMonth)
+  const inPeriod = (dateStr: string) => reportPeriod === 'TOTAL' ? true : monthKey(dateStr) === reportPeriod
+
+  // Editor de transacciones
+  const [editTx, setEditTx] = useState<any | null>(null)
+  const [editForm, setEditForm] = useState<any | null>(null)
+  const openEditor = (t:any) => {
+    setEditTx(t)
+    setEditForm({
+      type: t.type,
+      date: t.date,
+      amount: (t.amountCents / 100).toString(),
+      accountFromId: t.accountFromId || '',
+      accountToId: t.accountToId || '',
+      paymentMethod: t.paymentMethod || '',
+      categoryId: t.categoryId || '',
+      note: t.note || ''
+    })
+  }
+
   // ---- Form state ----
   const [form, setForm] = useState<any>({
     type: 'TRANSFERENCIA',
@@ -191,12 +229,12 @@ export default function App() {
     const isIngresoLocal = form.type === 'INGRESO'
     const isTransfLocal = form.type === 'TRANSFERENCIA'
     if (isTransfLocal) { if (form.categoryId) setForm((f:any)=>({ ...f, categoryId: null })); return }
-    const allowed = categories.filter(c => (isGastoLocal && c.kind==='GASTO') || (isIngresoLocal && c.kind==='INGRESO'))
+    const allowed = defaultCategories.filter(c => (isGastoLocal && c.kind==='GASTO') || (isIngresoLocal && c.kind==='INGRESO'))
     if (!allowed.some(c => c.id === form.categoryId)) {
       const first = allowed[0]?.id || null
       setForm((f:any) => ({ ...f, categoryId: first }))
     }
-  }, [form.type, categories])
+  }, [form.type])
 
   const isIngreso = form.type === 'INGRESO'
   const isGasto = form.type === 'GASTO'
@@ -229,43 +267,39 @@ export default function App() {
     setForm((f:any)=>({ ...f, amount: '', note: '' }))
   }
 
-  /* --- Reportes: gastos por categoría (mes) --- */
+  /* --- Reportes: gastos por categoría (periodo) --- */
   const gastosPorCategoria = useMemo(() => {
-    const now = new Date()
-    const key = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
     const map: Record<string, number> = {}
-    txs.filter(t => t.type==='GASTO' && monthKey(t.date)===key).forEach(t => {
-      const cat = categories.find(c => c.id===t.categoryId)?.name || 'Sin categoría'
+    txs.filter((t:any) => t.type==='GASTO' && inPeriod(t.date)).forEach((t:any) => {
+      const cat = defaultCategories.find(c => c.id===t.categoryId)?.name || 'Sin categoría'
       map[cat] = (map[cat] || 0) + t.amountCents
     })
     return Object.entries(map).map(([name,value]) => ({ name, value }))
-  }, [txs, categories])
+  }, [txs, reportPeriod])
 
   /* --- Reportes: gastos por mes (últimos 6) --- */
   const gastosPorMes = useMemo(() => {
     const map: Record<string, number> = {}
-    txs.filter(t => t.type==='GASTO').forEach(t => {
+    txs.filter((t:any) => t.type==='GASTO').forEach((t:any) => {
       const k = monthKey(t.date); map[k] = (map[k] || 0) + t.amountCents
     })
     const keys = Object.keys(map).sort().slice(-6)
     return keys.map(k => ({ name: k, value: map[k] }))
   }, [txs])
 
-  /* --- Reportes: GASTOS POR CUENTA (mes actual) --- */
+  /* --- Reportes: GASTOS POR CUENTA (periodo) --- */
   const orderedAccountIds = ['ahorros','daviplata','nequi','visa','rotativo','empresa','efectivo']
-  const gastosPorCuentaMes = useMemo(() => {
-    const now = new Date()
-    const key = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+  const gastosPorCuentaPeriodo = useMemo(() => {
     const sum: Record<string, number> = {}
     txs
-      .filter(t => t.type === 'GASTO' && monthKey(t.date) === key)
-      .forEach(t => { const id = t.accountFromId || ''; sum[id] = (sum[id] || 0) + t.amountCents })
+      .filter((t:any) => t.type === 'GASTO' && inPeriod(t.date))
+      .forEach((t:any) => { const id = t.accountFromId || ''; sum[id] = (sum[id] || 0) + t.amountCents })
     return orderedAccountIds.map(id => ({
       id,
       name: accounts.find(a => a.id === id)?.name || id,
       value: sum[id] || 0
     }))
-  }, [txs, accounts])
+  }, [txs, accounts, reportPeriod])
 
   const exportCSV = () => {
     const csv = buildCSV(txs)
@@ -378,15 +412,15 @@ export default function App() {
                     step="any"
                     placeholder="0"
                     value={form.amount}
-                    onKeyDown={(e) => ['e','E','+','-'].includes(e.key) && e.preventDefault()}
-                    onChange={(e) => onChange('amount', e.target.value)}
+                    onKeyDown={(e) => ['e','E','+','-'].includes((e as any).key) && e.preventDefault()}
+                    onChange={(e) => onChange('amount', (e.target as HTMLInputElement).value)}
                   />
                 </div>
               </div>
 
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 13, opacity: 0.7 }}>Medio de pago</div>
-                <select value={form.paymentMethod} onChange={(e)=>onChange('paymentMethod', e.target.value)} disabled={isIngreso || isTransf}>
+                <select value={form.paymentMethod} onChange={(e)=>onChange('paymentMethod', (e.target as HTMLSelectElement).value)} disabled={isIngreso || isTransf}>
                   {PAYMENT_METHODS.map(m => (<option key={m.id} value={m.id}>{m.label}</option>))}
                 </select>
               </div>
@@ -394,13 +428,13 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta origen</div>
-                  <select value={form.accountFromId} onChange={(e)=>onChange('accountFromId', e.target.value)} disabled={isIngreso || isGasto}>
+                  <select value={form.accountFromId} onChange={(e)=>onChange('accountFromId', (e.target as HTMLSelectElement).value)} disabled={isIngreso || isGasto}>
                     {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta destino</div>
-                  <select value={form.accountToId} onChange={(e)=>onChange('accountToId', e.target.value)} disabled={isGasto}>
+                  <select value={form.accountToId} onChange={(e)=>onChange('accountToId', (e.target as HTMLSelectElement).value)} disabled={isGasto}>
                     {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
                   </select>
                 </div>
@@ -409,15 +443,15 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Categoría</div>
-                  <select value={form.categoryId || ''} onChange={(e)=>onChange('categoryId', e.target.value)} disabled={isTransf}>
-                    {categories
+                  <select value={form.categoryId || ''} onChange={(e)=>onChange('categoryId', (e.target as HTMLSelectElement).value)} disabled={isTransf}>
+                    {defaultCategories
                       .filter(c => (form.type==='GASTO' && c.kind==='GASTO') || (form.type==='INGRESO' && c.kind==='INGRESO'))
                       .map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Nota</div>
-                  <input type='text' placeholder='Descripción' value={form.note} onChange={(e)=>onChange('note', e.target.value)} />
+                  <input type='text' placeholder='Descripción' value={form.note} onChange={(e)=>onChange('note', (e.target as HTMLInputElement).value)} />
                 </div>
               </div>
 
@@ -443,6 +477,14 @@ export default function App() {
         {/* REPORTES */}
         {tab === 'reportes' && (
           <section style={{ display: 'grid', gap: 16 }}>
+            {/* Filtro de periodo */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ fontWeight: 700 }}>Periodo:</div>
+              <select value={reportPeriod} onChange={(e)=>setReportPeriod((e.target as HTMLSelectElement).value)}>
+                {monthOptions.map(m => (<option key={m} value={m}>{m === 'TOTAL' ? 'Total' : m}</option>))}
+              </select>
+            </div>
+
             <div className='card' style={{ padding: 16 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input placeholder='Buscar...' onChange={()=>{}} />
@@ -467,7 +509,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {txs.map((t:any) => (
-                      <tr key={t.id} style={{ borderTop: `1px solid ${PALETTE.line}` }}>
+                      <tr key={t.id} onClick={()=>openEditor(t)} style={{ borderTop: `1px solid ${PALETTE.line}`, cursor: 'pointer' }}>
                         <td style={{ padding: '8px 0', whiteSpace: 'nowrap' }}>{t.date}</td>
                         <td>{t.type}</td>
                         <td>{fmtCOP(t.amountCents)}</td>
@@ -476,7 +518,7 @@ export default function App() {
                           {t.type === 'GASTO' && (accounts.find((a:any)=>a.id===t.accountFromId)?.name || '—')}
                           {t.type === 'TRANSFERENCIA' && `${accounts.find((a:any)=>a.id===t.accountFromId)?.name || '—'} → ${accounts.find((a:any)=>a.id===t.accountToId)?.name || '—'}`}
                         </td>
-                        <td>{categories.find((c:any)=>c.id===t.categoryId)?.name || '—'}</td>
+                        <td>{defaultCategories.find((c:any)=>c.id===t.categoryId)?.name || '—'}</td>
                         <td title={t.note || ''} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.note || ''}</td>
                       </tr>
                     ))}
@@ -488,12 +530,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* NUEVO: GASTOS POR CUENTA (MES ACTUAL) */}
+            {/* Gastos por cuenta — periodo */}
             <div className='card'>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por cuenta (mes actual)</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por cuenta — {reportPeriod === 'TOTAL' ? 'Total' : reportPeriod}</div>
               <table style={{ width: '100%', fontSize: 15 }}>
                 <tbody>
-                  {gastosPorCuentaMes.map(row => (
+                  {gastosPorCuentaPeriodo.map(row => (
                     <tr key={row.id} style={{ borderTop: `1px solid ${PALETTE.line}` }}>
                       <td style={{ padding: '8px 0' }}>{row.name}</td>
                       <td style={{ textAlign: 'right', padding: '8px 0', fontWeight: 600 }}>{fmtCOP(row.value)}</td>
@@ -503,15 +545,37 @@ export default function App() {
               </table>
             </div>
 
+            {/* Gastos por categoría — periodo */}
+            <div className='card'>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por categoría — {reportPeriod === 'TOTAL' ? 'Total' : reportPeriod}</div>
+              <table style={{ width: '100%', fontSize: 15 }}>
+                <tbody>
+                  {gastosPorCategoria.map((row:any, idx:number) => (
+                    <tr key={idx} style={{ borderTop: `1px solid ${PALETTE.line}` }}>
+                      <td style={{ padding: '8px 0' }}>{row.name}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', fontWeight: 600 }}>{fmtCOP(row.value)}</td>
+                    </tr>
+                  ))}
+                  {gastosPorCategoria.length === 0 && (
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: 'center', color: PALETTE.text, opacity: 0.6, padding: 12 }}>
+                        Sin gastos en el periodo
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
             {/* Gráficas */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className='card'>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por categoría (mes actual)</div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por categoría (periodo)</div>
                 <div style={{ height: 256 }}>
                   <ResponsiveContainer width='100%' height='100%'>
                     <PieChart>
                       <Pie dataKey='value' data={gastosPorCategoria} label={(e:any)=>e.name}>
-                        {gastosPorCategoria.map((_,i)=>(
+                        {gastosPorCategoria.map((_:any,i:number)=>(
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
@@ -521,7 +585,7 @@ export default function App() {
                 </div>
               </div>
               <div className='card'>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por mes</div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Gastos por mes (últimos 6)</div>
                 <div style={{ height: 256 }}>
                   <ResponsiveContainer width='100%' height='100%'>
                     <BarChart data={gastosPorMes}>
@@ -539,6 +603,97 @@ export default function App() {
           </section>
         )}
       </div>
+
+      {/* Editor modal */}
+      {editForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: PALETTE.card, borderRadius: 16, width: '100%', maxWidth: 520, padding: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 12 }}>Editar transacción</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Tipo</div>
+                <select value={editForm.type} onChange={(e)=>setEditForm({ ...editForm, type: (e.target as HTMLSelectElement).value })}>
+                  <option value='INGRESO'>Ingreso</option>
+                  <option value='GASTO'>Gasto</option>
+                  <option value='TRANSFERENCIA'>Transferencia</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Fecha</div>
+                <input type='date' value={editForm.date} onChange={(e)=>setEditForm({ ...editForm, date: (e.target as HTMLInputElement).value })} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, opacity: 0.7 }}>Monto (COP)</div>
+              <input type='number' inputMode='decimal' step='any' placeholder='0' value={editForm.amount}
+                onKeyDown={(e)=>['e','E','+','-'].includes((e as any).key) && e.preventDefault()}
+                onChange={(e)=>setEditForm({ ...editForm, amount: (e.target as HTMLInputElement).value })} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Medio de pago</div>
+                <select value={editForm.paymentMethod || ''} onChange={(e)=>setEditForm({ ...editForm, paymentMethod: (e.target as HTMLSelectElement).value })} disabled={editForm.type !== 'GASTO'}>
+                  {PAYMENT_METHODS.map(m => (<option key={m.id} value={m.id}>{m.label}</option>))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Categoría</div>
+                <select value={editForm.categoryId || ''} onChange={(e)=>setEditForm({ ...editForm, categoryId: (e.target as HTMLSelectElement).value })} disabled={editForm.type === 'TRANSFERENCIA'}>
+                  {defaultCategories.filter(c => (editForm.type==='GASTO' && c.kind==='GASTO') || (editForm.type==='INGRESO' && c.kind==='INGRESO')).map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta origen</div>
+                <select value={editForm.accountFromId || ''} onChange={(e)=>setEditForm({ ...editForm, accountFromId: (e.target as HTMLSelectElement).value })} disabled={!(editForm.type === 'TRANSFERENCIA' || editForm.type === 'GASTO')}>
+                  {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Cuenta destino</div>
+                <select value={editForm.accountToId || ''} onChange={(e)=>setEditForm({ ...editForm, accountToId: (e.target as HTMLSelectElement).value })} disabled={!(editForm.type === 'TRANSFERENCIA' || editForm.type === 'INGRESO')}>
+                  {accounts.map(a => (<option key={a.id} value={a.id}>{a.name}</option>))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, opacity: 0.7 }}>Nota</div>
+              <input type='text' value={editForm.note || ''} onChange={(e)=>setEditForm({ ...editForm, note: (e.target as HTMLInputElement).value })} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 16 }}>
+              <button onClick={()=>{ if(!editTx) return; setTxs((prev:any[]) => prev.filter((t:any) => t.id !== editTx.id)); setEditForm(null); setEditTx(null); }} style={{ background: '#fef2f2', color: '#b91c1c' }}>Eliminar</button>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button onClick={()=>{ setEditForm(null); setEditTx(null); }}>Cancelar</button>
+                <button className='btn-primary' onClick={()=>{
+                  if (!editTx || !editForm) return
+                  const amountCents = toCents(editForm.amount || '0')
+                  if (amountCents <= 0) { alert('Monto inválido'); return }
+                  const updated = {
+                    id: editTx.id,
+                    type: editForm.type,
+                    date: editForm.date,
+                    amountCents,
+                    note: editForm.note?.trim() || null,
+                    categoryId: editForm.type === 'TRANSFERENCIA' ? null : (editForm.categoryId || null),
+                    paymentMethod: editForm.type === 'GASTO' ? (editForm.paymentMethod || null) : null,
+                    accountFromId: (editForm.type === 'GASTO' || editForm.type === 'TRANSFERENCIA') ? (editForm.accountFromId || null) : null,
+                    accountToId: (editForm.type === 'INGRESO' || editForm.type === 'TRANSFERENCIA') ? (editForm.accountToId || null) : null
+                  }
+                  setTxs((prev:any[]) => prev.map((t:any) => t.id === editTx.id ? { ...t, ...updated } : t))
+                  setEditForm(null); setEditTx(null)
+                }}>Guardar cambios</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
